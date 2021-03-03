@@ -3543,7 +3543,7 @@ class App extends React.Component<ExcalidrawProps, AppState> {
     const file = event.dataTransfer?.files[0];
     if (
       file?.type === MIME_TYPES.excalidrawlib ||
-      file?.name.endsWith(".excalidrawlib")
+      file?.name?.endsWith(".excalidrawlib")
     ) {
       Library.importLibrary(file)
         .then(() => {
