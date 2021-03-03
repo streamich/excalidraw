@@ -3542,39 +3542,6 @@ class App extends React.Component<ExcalidrawProps, AppState> {
 
     const file = event.dataTransfer?.files[0];
     if (
-      file?.type === "application/json" ||
-      file?.name.endsWith(".excalidraw")
-    ) {
-      this.setState({ isLoading: true });
-      if (
-        "chooseFileSystemEntries" in window ||
-        "showOpenFilePicker" in window
-      ) {
-        try {
-          // This will only work as of Chrome 86,
-          // but can be safely ignored on older releases.
-          const item = event.dataTransfer.items[0];
-          // TODO: Make this part of `AppState`.
-          (file as any).handle = await (item as any).getAsFileSystemHandle();
-        } catch (error) {
-          console.warn(error.name, error.message);
-        }
-      }
-      loadFromBlob(file, this.state)
-        .then(({ elements, appState }) =>
-          this.syncActionResult({
-            elements,
-            appState: {
-              ...(appState || this.state),
-              isLoading: false,
-            },
-            commitToHistory: true,
-          }),
-        )
-        .catch((error) => {
-          this.setState({ isLoading: false, errorMessage: error.message });
-        });
-    } else if (
       file?.type === MIME_TYPES.excalidrawlib ||
       file?.name.endsWith(".excalidrawlib")
     ) {
@@ -3585,11 +3552,40 @@ class App extends React.Component<ExcalidrawProps, AppState> {
         .catch((error) =>
           this.setState({ isLoading: false, errorMessage: error.message }),
         );
+      // default: assume an Excalidraw file regardless of extension/MimeType
     } else {
-      this.setState({
-        isLoading: false,
-        errorMessage: t("alerts.couldNotLoadInvalidFile"),
-      });
+      this.setState({ isLoading: true });
+      let fileHandle;
+      try {
+        // This will only work as of Chrome 86,
+        // but can be safely ignored on older releases.
+        const item = event.dataTransfer.items[0];
+        // NOTE this needs to be retrieved in the same frame, so doing it before
+        // loadFromBlob (but we want to cache it only if the import succeeds)
+        fileHandle = await (item as any).getAsFileSystemHandle();
+      } catch (error) {
+        console.warn(error.name, error.message);
+      }
+      try {
+        const { elements, appState } = await loadFromBlob(file, this.state);
+        // TODO: Make this part of `AppState`.
+        (file as any).handle = fileHandle;
+        this.syncActionResult({
+          elements,
+          appState: {
+            ...(appState || this.state),
+            isLoading: false,
+          },
+          commitToHistory: true,
+        });
+        if (
+          "chooseFileSystemEntries" in window ||
+          "showOpenFilePicker" in window
+        ) {
+        }
+      } catch (error) {
+        this.setState({ isLoading: false, errorMessage: error.message });
+      }
     }
   };
 
